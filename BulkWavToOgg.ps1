@@ -33,7 +33,6 @@ param (
     [string]$subFolderName = "ogg",
     [string]$sourceExtension = "wav",
     [string]$destinationExtension = "ogg", 
-    [string]$argumentString = "-n -i `"{0}`" -acodec libvorbis `"{1}`"", # source and destiation
     [int]$batchSize=300 # higher numbers mean tougher workloads
 )
 
@@ -55,6 +54,8 @@ function TrackProgress([string]$procName)
 
         Sleep -Seconds 1
     }
+
+    Write-Progress -Activity "Batch Running" -Completed
 }
 
 function BulkExecute(
@@ -62,7 +63,6 @@ function BulkExecute(
     [string]$subFolderName,
     [string]$sourceExtension,
     [string]$destinationExtension, 
-    [string]$argumentString,
     [int]$batchSize
 )
 {
@@ -74,8 +74,8 @@ function BulkExecute(
 
     $fileList = Get-ChildItem -Filter ("*." + $sourceExtension) -Recurse | % { $_.FullName.Substring(0,$_.FullName.Length-$sourceExtension.Length-1) }
     [string]$currentFolder = [string](Get-Location)
+
     [string]$procTrackingName = ""
-    
     [int]$batchCount = 0;
 
     foreach($fileName in $fileList)
@@ -102,7 +102,7 @@ function BulkExecute(
             # Input file > Convert > Output File
             $proc = Start-Process -WindowStyle Hidden -PassThru `
                 -FilePath $executableLocation `
-                -ArgumentList ($argumentString -f $source, $destination)
+                -ArgumentList ("-n -i `"{0}`" -acodec libvorbis `"{1}`"" -f $source, $destination) # <<<<<<<<<<<< arguments for calling ffmpeg.exe CHANGE AS NEEDED
 
             $procTrackingName = $proc.Name
             $batchCount++;
@@ -112,6 +112,7 @@ function BulkExecute(
             Write-Host "*** SKIP FILE EXISTS ***********************"
         }
 
+        Write-Host "file count: $batchCount, batch size: $batchSize"
         # Wait for processes to finish if over batch size
         if($batchCount -eq $batchSize)
         {
@@ -127,4 +128,4 @@ function BulkExecute(
     Write-Host "$destinationExtension file count:" (Get-ChildItem -Include "*.$destinationExtension" -Recurse | Measure-Object).Count
 }
 
-BulkExecute $executableLocation $subFolderName $sourceExtension $destinationExtension $argumentString, $batchSize
+BulkExecute $executableLocation $subFolderName $sourceExtension $destinationExtension $batchSize
